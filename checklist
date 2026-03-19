@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Pipeline Checklist</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #181c23;
+    --border: #1f2530;
+    --border-bright: #2d3545;
+    --text: #c8d0e0;
+    --text-dim: #4a5568;
+    --text-muted: #2d3748;
+
+    --stage1: #00d4ff;
+    --stage1-dim: rgba(0, 212, 255, 0.08);
+    --stage1-glow: rgba(0, 212, 255, 0.15);
+
+    --stage2: #a78bfa;
+    --stage2-dim: rgba(167, 139, 250, 0.08);
+    --stage2-glow: rgba(167, 139, 250, 0.15);
+
+    --stage3: #34d399;
+    --stage3-dim: rgba(52, 211, 153, 0.08);
+    --stage3-glow: rgba(52, 211, 153, 0.15);
+
+    --done-text: #3a4558;
+    --radius: 4px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-tag::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--stage3);
+    box-shadow: 0 0 8px var(--stage3);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    line-height: 1.2;
+  }
+
+  h1 span {
+    color: var(--stage1);
+  }
+
+  .header-meta {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+  }
+
+  /* Progress bar global */
+  .global-progress {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--stage1), var(--stage2), var(--stage3));
+    border-radius: 99px;
+    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 0%;
+  }
+
+  .progress-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    min-width: 48px;
+    text-align: right;
+  }
+
+  /* Stage blocks */
+  .stage {
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .stage.stage-1 { --accent: var(--stage1); --accent-dim: var(--stage1-dim); --accent-glow: var(--stage1-glow); }
+  .stage.stage-2 { --accent: var(--stage2); --accent-dim: var(--stage2-dim); --accent-glow: var(--stage2-glow); }
+  .stage.stage-3 { --accent: var(--stage3); --accent-dim: var(--stage3-dim); --accent-glow: var(--stage3-glow); }
+
+  .stage.complete {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+
+  /* Stage header */
+  .stage-header {
+    background: var(--surface);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stage-header::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+  }
+
+  .stage-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 3px 8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .stage-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    letter-spacing: 0.01em;
+    flex: 1;
+  }
+
+  .stage-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .stage-counter .done-count {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Stage mini progress */
+  .stage-progress {
+    height: 2px;
+    background: var(--border);
+  }
+
+  .stage-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 0%;
+  }
+
+  /* Items list */
+  .items {
+    background: var(--surface);
+  }
+
+  /* Checklist item */
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+    position: relative;
+  }
+
+  .item:last-child { border-bottom: none; }
+
+  .item:hover { background: var(--surface2); }
+
+  .item:active { transform: scale(0.995); }
+
+  /* Custom checkbox */
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--border-bright);
+    border-radius: var(--radius);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    background: transparent;
+  }
+
+  .item:hover .checkbox {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .item.checked .checkbox {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  /* Checkmark SVG */
+  .checkmark {
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    transform: scale(0) rotate(-10deg);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .item.checked .checkmark {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  .checkmark path {
+    stroke: #0a0c0f;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+  }
+
+  /* Item label */
+  .item-label {
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.4;
+    transition: color 0.25s, opacity 0.25s;
+    flex: 1;
+    font-weight: 400;
+  }
+
+  .item.checked .item-label {
+    color: var(--done-text);
+    text-decoration: line-through;
+    text-decoration-color: var(--text-muted);
+  }
+
+  /* Item index */
+  .item-index {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 16px;
+    text-align: right;
+    transition: color 0.2s;
+  }
+
+  .item.checked .item-index { color: var(--accent); opacity: 0.5; }
+
+  /* Complete badge on stage header */
+  .badge-complete {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 99px;
+    padding: 2px 8px;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+
+  .stage.complete .badge-complete {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Reset button */
+  .reset-btn {
+    display: block;
+    margin: 32px auto 0;
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .reset-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.06);
+  }
+
+  /* All done overlay message */
+  .all-done {
+    text-align: center;
+    padding: 32px 20px;
+    display: none;
+  }
+
+  .all-done.visible { display: block; }
+
+  .all-done-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+
+  .all-done-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--stage3);
+    letter-spacing: 0.05em;
+  }
+
+  .all-done-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  /* click ripple */
+  @keyframes ripple {
+    0% { transform: scale(0); opacity: 0.4; }
+    100% { transform: scale(3); opacity: 0; }
+  }
+
+  .ripple {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    pointer-events: none;
+    animation: ripple 0.5s ease-out forwards;
+    transform-origin: center;
+    left: 20px;
+    top: 50%;
+    margin-top: -15px;
+    margin-left: -15px;
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 20px; }
+    .item { padding: 13px 14px; }
+    .stage-header { padding: 14px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-tag">pipeline de produção 3d</div>
+    <h1>3D Asset<br><span>Checklist</span></h1>
+    <div class="header-meta">// acompanhamento de etapas do modelo</div>
+    <div class="global-progress">
+      <div class="progress-track">
+        <div class="progress-fill" id="globalFill"></div>
+      </div>
+      <div class="progress-label" id="globalLabel">0 / 0</div>
+    </div>
+  </div>
+
+  <div id="stages"></div>
+
+  <div class="all-done" id="allDone">
+    <div class="all-done-icon">✦</div>
+    <div class="all-done-text">Pipeline completo</div>
+    <div class="all-done-sub">Todos os itens foram verificados.</div>
+  </div>
+
+  <button class="reset-btn" onclick="resetAll()">↺ &nbsp; Reiniciar checklist</button>
+</div>
+
+<script>
+const DATA = [
+  {
+    id: 'stage1',
+    stageClass: 'stage-1',
+    num: 'Etapa 01',
+    title: 'Modelagem',
+    items: [
+      'Modelagem feita',
+      'Aplicar altura, largura, profundidade e rotação',
+      'Modelo centralizado no mundo do software',
+      'Anchorpoint centralizado no chão do objeto',
+      'Conferir se não tem muito bevel no modelo',
+    ]
+  },
+  {
+    id: 'stage2',
+    stageClass: 'stage-2',
+    num: 'Etapa 02',
+    title: 'Otimização',
+    items: [
+      'Abrir malha de UV',
+      'Criar as texturas',
+      'Texturas feitas no máximo em 2K',
+      'Fazer bake de todas as texturas',
+      'Bake principal: cor, roughness, metal',
+      'Conferir se tem no máximo 6 texturas diferentes',
+      'Reduzir quantidade de polígonos',
+    ]
+  },
+  {
+    id: 'stage3',
+    stageClass: 'stage-3',
+    num: 'Etapa 03',
+    title: 'Exportação',
+    items: [
+      'Conferir se aplicou tudo de escala e objeto centralizado',
+      'Exportar objeto em .glb e .usdz',
+      'Exportar textura em WebP',
+      'Aplicar altura como Y',
+    ]
+  }
+];
+
+// State from localStorage
+function loadState() {
+  try { return JSON.parse(localStorage.getItem('checklist3d') || '{}'); } catch { return {}; }
+}
+function saveState(state) {
+  try { localStorage.setItem('checklist3d', JSON.stringify(state)); } catch {}
+}
+
+let state = loadState();
+
+function getTotal() {
+  return DATA.reduce((a, s) => a + s.items.length, 0);
+}
+
+function getDoneCount() {
+  return Object.values(state).filter(Boolean).length;
+}
+
+function updateGlobal() {
+  const total = getTotal();
+  const done = getDoneCount();
+  const pct = total ? (done / total) * 100 : 0;
+  document.getElementById('globalFill').style.width = pct + '%';
+  document.getElementById('globalLabel').textContent = `${done} / ${total}`;
+  const allDoneEl = document.getElementById('allDone');
+  if (done === total) {
+    allDoneEl.classList.add('visible');
+  } else {
+    allDoneEl.classList.remove('visible');
+  }
+}
+
+function updateStage(stageId) {
+  const stage = DATA.find(s => s.id === stageId);
+  const total = stage.items.length;
+  const done = stage.items.filter((_, i) => state[`${stageId}_${i}`]).length;
+  const pct = (done / total) * 100;
+
+  const el = document.getElementById(stageId);
+  const fill = el.querySelector('.stage-progress-fill');
+  const counter = el.querySelector('.done-count');
+  const totalEl = el.querySelector('.total-count');
+
+  fill.style.width = pct + '%';
+  counter.textContent = done;
+  totalEl.textContent = total;
+
+  if (done === total) {
+    el.classList.add('complete');
+  } else {
+    el.classList.remove('complete');
+  }
+}
+
+function toggle(stageId, idx, el) {
+  const key = `${stageId}_${idx}`;
+  state[key] = !state[key];
+  saveState(state);
+
+  const item = el.closest('.item');
+  if (state[key]) {
+    item.classList.add('checked');
+    // ripple
+    const r = document.createElement('div');
+    r.className = 'ripple';
+    item.appendChild(r);
+    setTimeout(() => r.remove(), 500);
+  } else {
+    item.classList.remove('checked');
+  }
+
+  updateStage(stageId);
+  updateGlobal();
+}
+
+function resetAll() {
+  if (!confirm('Reiniciar todo o checklist?')) return;
+  state = {};
+  saveState(state);
+  document.querySelectorAll('.item').forEach(el => el.classList.remove('checked'));
+  DATA.forEach(s => updateStage(s.id));
+  updateGlobal();
+}
+
+function build() {
+  const container = document.getElementById('stages');
+  DATA.forEach(stage => {
+    const div = document.createElement('div');
+    div.className = `stage ${stage.stageClass}`;
+    div.id = stage.id;
+
+    const total = stage.items.length;
+
+    div.innerHTML = `
+      <div class="stage-header">
+        <span class="stage-num">${stage.num}</span>
+        <span class="stage-title">${stage.title}</span>
+        <span class="badge-complete">✓ Done</span>
+        <span class="stage-counter"><span class="done-count">0</span>&nbsp;/&nbsp;<span class="total-count">${total}</span></span>
+      </div>
+      <div class="stage-progress">
+        <div class="stage-progress-fill"></div>
+      </div>
+      <div class="items">
+        ${stage.items.map((label, i) => `
+          <div class="item ${state[`${stage.id}_${i}`] ? 'checked' : ''}" onclick="toggle('${stage.id}', ${i}, this)">
+            <div class="checkbox">
+              <svg class="checkmark" viewBox="0 0 12 12">
+                <path d="M2 6.5L5 9.5L10 3"/>
+              </svg>
+            </div>
+            <span class="item-label">${label}</span>
+            <span class="item-index">${String(i + 1).padStart(2, '0')}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    container.appendChild(div);
+    updateStage(stage.id);
+  });
+
+  updateGlobal();
+}
+
+build();
+</script>
+</body>
+</html>
